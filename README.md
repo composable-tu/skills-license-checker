@@ -1,1 +1,1 @@
-# skills-license-checker
+# Skills License Checker
