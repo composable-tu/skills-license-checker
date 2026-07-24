@@ -9,11 +9,15 @@ export interface SkillFind {
 const SKILL_FILE = "SKILL.md";
 
 function isDirectory(path: string): boolean {
-  return statSync(path).isDirectory();
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 function readSkillFile(skillDirPath: string): SkillFind | undefined {
-  const skillFilePath  = join(skillDirPath, SKILL_FILE);
+  const skillFilePath = join(skillDirPath, SKILL_FILE);
   try {
     const content = readFileSync(skillFilePath, "utf-8");
     return { name: basename(skillDirPath), content };
