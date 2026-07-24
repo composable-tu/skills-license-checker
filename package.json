@@ -16,11 +16,9 @@
     "dist"
   ],
   "type": "module",
+  "types": "./dist/index.d.cts",
   "exports": {
-    ".": {
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
-    },
+    ".": "./dist/index.mjs",
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -32,6 +30,9 @@
     "test": "vp test",
     "check": "vp check",
     "prepublishOnly": "vp run build"
+  },
+  "dependencies": {
+    "front-matter": "^4.0.2"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
@@ -48,12 +49,6 @@
       "onFail": "download"
     }
   },
-  "dependencies": {
-    "front-matter": "^4.0.2"
-  },
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.cts",
   "inlinedDependencies": {
     "citty": "0.2.2"
   }
