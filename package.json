@@ -1,21 +1,24 @@
 {
   "name": "skills-license-checker",
   "version": "0.0.1",
-  "description": "A starter for creating a TypeScript package.",
-  "homepage": "https://github.com/author/library#readme",
+  "description": "A JS library to help JS/TS developers quickly generate information regarding Agent Skills for use at the project level.",
+  "homepage": "https://github.com/composable-tu/skills-license-checker#readme",
   "bugs": {
-    "url": "https://github.com/author/library/issues"
+    "url": "https://github.com/composable-tu/skills-license-checker/issues"
   },
   "license": "",
   "author": "Author Name <author.name@mail.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/author/library.git"
+    "url": "git+https://github.com/composable-tu/skills-license-checker.git"
   },
   "files": [
     "dist"
   ],
   "type": "module",
+  "bin": {
+    "skills-license-checker": "./dist/index.mjs"
+  },
   "types": "./dist/index.d.cts",
   "exports": {
     ".": "./dist/index.mjs",
@@ -32,7 +35,8 @@
     "prepublishOnly": "vp run build"
   },
   "dependencies": {
-    "front-matter": "^4.0.2"
+    "front-matter": "^4.0.2",
+    "git-url-parse": "^16.1.0"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
@@ -45,5 +49,12 @@
   },
   "inlinedDependencies": {
     "citty": "0.2.2"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.17.0",
+      "onFail": "download"
+    }
   }
 }

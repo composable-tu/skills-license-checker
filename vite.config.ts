@@ -8,6 +8,7 @@ export default defineConfig({
     exports: true,
     format: ["esm"],
     sourcemap: true,
+    banner: "#!/usr/bin/env node",
   },
   lint: {
     options: {

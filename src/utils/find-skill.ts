@@ -1,9 +1,23 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, basename } from "node:path";
+import { agentDirs } from "../config/agent-dirs.ts";
+import { readSkillsLock } from "./parse-vercel-skills-lock.ts";
+import type { ParseSkillMeta } from "./parse-skill-front.ts";
+
+// Exported types
+export interface ReturnSkillInfo {
+  name: string;
+  description: string;
+  license?: string;
+  author?: string;
+  version?: string;
+  sourceUrl?: string;
+}
 
 export interface SkillFind {
   name: string;
   content: string;
+  sourceUrl?: string;
 }
 
 const SKILL_FILE = "SKILL.md";
@@ -42,7 +56,6 @@ function scanSkillsDir(skillsDirPath: string): SkillFind[] {
 
 function findAgentSkillDirs(projectRoot: string): SkillFind[] {
   const results: SkillFind[] = [];
-  const agentDirs = [".agent", ".agents"];
   for (const agentDir of agentDirs) {
     const agentPath = join(projectRoot, agentDir);
     if (!isDirectory(agentPath)) continue;
@@ -53,5 +66,27 @@ function findAgentSkillDirs(projectRoot: string): SkillFind[] {
 }
 
 export function findSkills(projectRoot: string): SkillFind[] {
-  return findAgentSkillDirs(projectRoot);
+  const lockMap = readSkillsLock(projectRoot);
+  const seen = new Set<string>();
+  return findAgentSkillDirs(projectRoot)
+    .filter((skill) => {
+      if (seen.has(skill.name)) return false;
+      seen.add(skill.name);
+      return true;
+    })
+    .map((skill) => ({
+      ...skill,
+      sourceUrl: lockMap.find((entry) => entry.name === skill.name)?.sourceUrl,
+    }));
+}
+
+export function mergeSkillInfo(
+  skillMeta: ParseSkillMeta[],
+  skillFind: SkillFind[],
+): ReturnSkillInfo[] {
+  const urlByName = new Map(skillFind.map((s) => [s.name, s.sourceUrl]));
+  return skillMeta.map((meta) => ({
+    ...meta,
+    sourceUrl: urlByName.get(meta.name),
+  }));
 }
