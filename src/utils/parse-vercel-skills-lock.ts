@@ -26,7 +26,6 @@ function resolveSourceUrl(entry: LocalSkillLockEntry): string | undefined {
     case "github":
       return `https://github.com/${entry.source}`;
     case "git":
-      return entry.sourceUrl ? gitUrlParse(entry.sourceUrl).toString("https") : undefined;
     case "gitlab":
       return entry.sourceUrl ? gitUrlParse(entry.sourceUrl).toString("https") : undefined;
     default:
