@@ -13,31 +13,31 @@
 npx skills-license-checker
 ```
 
-> pnpm
+> [pnpm](https://pnpm.io)
 
 ```zsh
 pnpm dlx skills-license-checker
 ```
 
-> yarn
+> [Yarn](https://yarnpkg.com)
 
 ```zsh
 yarn dlx skills-license-checker
 ```
 
-> vlt
+> [vlt](https://www.vlt.io)
 
 ```zsh
 vlx skills-license-checker
 ```
 
-> Bun
+> [Bun](https://bun.sh)
 
 ```zsh
 bunx skills-license-checker
 ```
 
-> Vite+
+> [Vite+](https://viteplus.dev)
 
 ```zsh
 vpx skills-license-checker
