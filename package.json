@@ -43,13 +43,6 @@
     "vite": "catalog:",
     "vite-plus": "catalog:"
   },
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "11.17.0",
-      "onFail": "download"
-    }
-  },
   "inlinedDependencies": {
     "citty": "0.2.2"
   }
