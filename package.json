@@ -16,6 +16,9 @@
     "dist"
   ],
   "type": "module",
+  "bin": {
+    "skills-license-checker": "./dist/index.mjs"
+  },
   "types": "./dist/index.d.cts",
   "exports": {
     ".": "./dist/index.mjs",
