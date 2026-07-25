@@ -23,4 +23,7 @@ jobs:
       - name: Build
         run: vp pack
 
+      - name: Remove devEngines for npm compatibility
+        run: node -e "const p=require('./package.json');delete p.devEngines;require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+
       - run: vp exec pkg-pr-new publish --commentWithSha
