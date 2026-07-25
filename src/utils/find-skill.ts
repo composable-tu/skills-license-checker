@@ -67,10 +67,17 @@ function findAgentSkillDirs(projectRoot: string): SkillFind[] {
 
 export function findSkills(projectRoot: string): SkillFind[] {
   const lockMap = readSkillsLock(projectRoot);
-  return findAgentSkillDirs(projectRoot).map((skill) => ({
-    ...skill,
-    sourceUrl: lockMap.find((entry) => entry.name === skill.name)?.sourceUrl,
-  }));
+  const seen = new Set<string>();
+  return findAgentSkillDirs(projectRoot)
+    .filter((skill) => {
+      if (seen.has(skill.name)) return false;
+      seen.add(skill.name);
+      return true;
+    })
+    .map((skill) => ({
+      ...skill,
+      sourceUrl: lockMap.find((entry) => entry.name === skill.name)?.sourceUrl,
+    }));
 }
 
 export function mergeSkillInfo(
