@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import gitUrlParse from "git-url-parse";
 
-// Exported types
+/** Exported types */
 export interface ParseSkillLock {
   name: string;
   sourceUrl?: string;

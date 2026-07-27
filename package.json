@@ -1,6 +1,6 @@
 {
   "name": "skills-license-checker",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A JS library to help JS/TS developers quickly generate information regarding Agent Skills for use at the project level.",
   "homepage": "https://github.com/composable-tu/skills-license-checker#readme",
   "bugs": {
@@ -12,13 +12,13 @@
     "type": "git",
     "url": "git+https://github.com/composable-tu/skills-license-checker.git"
   },
+  "bin": {
+    "skills-license-checker": "./dist/index.mjs"
+  },
   "files": [
     "dist"
   ],
   "type": "module",
-  "bin": {
-    "skills-license-checker": "./dist/index.mjs"
-  },
   "types": "./dist/index.d.cts",
   "exports": {
     ".": "./dist/index.mjs",
@@ -36,7 +36,8 @@
   },
   "dependencies": {
     "front-matter": "^4.0.2",
-    "git-url-parse": "^16.1.0"
+    "git-url-parse": "^16.1.0",
+    "spdx-license-list": "^6.12.0"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
@@ -47,14 +48,14 @@
     "vite": "catalog:",
     "vite-plus": "catalog:"
   },
-  "inlinedDependencies": {
-    "citty": "0.2.2"
-  },
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
       "version": "11.17.0",
       "onFail": "download"
     }
+  },
+  "inlinedDependencies": {
+    "citty": "0.2.2"
   }
 }
