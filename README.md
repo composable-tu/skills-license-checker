@@ -46,7 +46,7 @@ vpx skills-license-checker
 ## CLI Options
 
 | Option                      | Type      | Default         | Description                                 |
-|-----------------------------|-----------|-----------------|---------------------------------------------|
+| --------------------------- | --------- | --------------- | ------------------------------------------- |
 | `--path`                    | `string`  | `process.cwd()` | Project root path to scan for skills        |
 | `--format`                  | `string`  | `text`          | Output format: `text` or `json`             |
 | `--include-license-content` | `boolean` | `false`         | Include full license file content in output |

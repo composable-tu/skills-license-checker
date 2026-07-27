@@ -8,7 +8,7 @@ export const findLicenseFile = (dirPath: string): string | undefined => {
     try {
       return readFileSync(join(dirPath, fileName), "utf-8");
     } catch (err: any) {
-      if (err?.code !== 'ENOENT') throw err;
+      if (err?.code !== "ENOENT") throw err;
     }
   }
   return undefined;
