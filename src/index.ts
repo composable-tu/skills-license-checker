@@ -32,9 +32,15 @@ const main = defineCommand({
     },
   },
   async run({ args }) {
+    const format = args.format ?? "text";
+
+    if (format !== "text" && format !== "json") throw new Error(
+        `Unsupported output format: ${format}. Supported formats are "text" and "json".`
+    );
+
     const skillInfo = entry(args.path, args["include-license-content"]);
 
-    switch (args.format) {
+    switch (format) {
       case "json":
         console.log(JSON.stringify(skillInfo, null, 2));
         break;
