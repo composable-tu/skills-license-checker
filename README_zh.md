@@ -43,6 +43,42 @@ bunx skills-license-checker
 vpx skills-license-checker
 ```
 
+## CLI 选项
+
+| 选项       | 类型     | 默认值          | 说明                           |
+|------------|----------|-----------------|--------------------------------|
+| `--path`   | `string` | `process.cwd()` | 指定扫描 Skills 的项目根路径   |
+| `--format` | `string` | `text`          | 指定输出格式：`text` 或 `json` |
+
+以文本输出（默认）：
+
+```
+Found 2 skill(s) in /path/to/project
+---
+Name: my-skill
+Description: A helpful skill
+License: MIT
+Author: Jane Doe
+Version: 1.0.0
+Source: https://github.com/user/repo
+---
+```
+
+以 JSON 输出：
+
+```json
+[
+  {
+    "name": "my-skill",
+    "description": "A helpful skill",
+    "license": "MIT",
+    "author": "Jane Doe",
+    "version": "1.0.0",
+    "sourceUrl": "https://github.com/user/repo"
+  }
+]
+```
+
 ## 开发
 
 此项目是一个 Vite+ 项目。在对该项目进行开发时，请先确保您的计算机安装了 Vite+：https://viteplus.dev
