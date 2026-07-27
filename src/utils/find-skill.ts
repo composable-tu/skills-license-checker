@@ -4,7 +4,7 @@ import { agentDirs } from "../config/agent-dirs.ts";
 import { readSkillsLock } from "./parse-vercel-skills-lock.ts";
 import type { ParseSkillMeta } from "./parse-skill-front.ts";
 
-// Exported types
+/** Exported types */
 export interface ReturnSkillInfo {
   name: string;
   description: string;

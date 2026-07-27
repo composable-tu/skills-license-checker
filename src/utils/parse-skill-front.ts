@@ -3,7 +3,7 @@ import type { SkillFind } from "./find-skill.ts";
 
 // https://agentskills.io/specification
 
-// Exported types
+/** Exported types */
 export interface ParseSkillMeta {
   name: string;
   description: string;
@@ -25,7 +25,7 @@ interface SkillFront {
   version?: string;
 }
 
-// Separate `meta` object field
+/** Separate `meta` object field */
 interface SkillMeta {
   author?: string;
   version?: string;

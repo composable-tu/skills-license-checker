@@ -20,21 +20,33 @@ const main = defineCommand({
       description: "Project root path",
       default: process.cwd(),
     },
+    format: {
+      type: "string",
+      description: "Output format",
+      default: "text",
+    },
   },
   async run({ args }) {
     const skillInfo = entry(args.path);
 
-    console.log(`Found ${skillInfo.length} skill(s) in ${args.path}`);
-    console.log("---");
+    switch (args.format) {
+      case "json":
+        console.log(JSON.stringify(skillInfo, null, 2));
+        break;
+      default:
+        console.log(`Found ${skillInfo.length} skill(s) in ${args.path}`);
+        console.log("---");
 
-    for (const skill of skillInfo) {
-      console.log(`Name: ${skill.name}`);
-      console.log(`Description: ${skill.description}`);
-      console.log(`License: ${skill.license || "Unknown"}`);
-      if (skill.author) console.log(`Author: ${skill.author}`);
-      if (skill.version) console.log(`Version: ${skill.version}`);
-      if (skill.sourceUrl) console.log(`Source: ${skill.sourceUrl}`);
-      console.log("---");
+        for (const skill of skillInfo) {
+          console.log(`Name: ${skill.name}`);
+          console.log(`Description: ${skill.description}`);
+          console.log(`License: ${skill.license || "Unknown"}`);
+          if (skill.author) console.log(`Author: ${skill.author}`);
+          if (skill.version) console.log(`Version: ${skill.version}`);
+          if (skill.sourceUrl) console.log(`Source: ${skill.sourceUrl}`);
+          console.log("---");
+        }
+        break;
     }
   },
 });
