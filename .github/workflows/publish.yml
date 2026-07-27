@@ -28,4 +28,4 @@ jobs:
       - run: pnpm ci
       - run: pnpm run build --if-present
       - run: pnpm test
-      - run: pnpm publish  # Or: npm stage publish
+      - run: pnpm publish  # Or: pnpm stage publish
