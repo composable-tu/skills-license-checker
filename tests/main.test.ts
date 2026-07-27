@@ -15,7 +15,7 @@ afterEach(() => {
 function buildFrontmatter(meta: Record<string, string | undefined>): string {
   const lines = ["---"];
   for (const [key, value] of Object.entries(meta)) {
-    if (value !== undefined) lines.push(`${key}: ${value}`);
+    if (value) lines.push(`${key}: ${value}`);
   }
   lines.push("---");
   return lines.join("\n");
