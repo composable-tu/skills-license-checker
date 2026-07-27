@@ -1,6 +1,12 @@
 import { defineCommand, runMain } from "citty";
-import { findSkills, mergeSkillInfo } from "./utils/find-skill.ts";
+import { findSkills, mergeSkillInfo, type ReturnSkillInfo } from "./utils/find-skill.ts";
 import { getSkillMeta } from "./utils/parse-skill-front.ts";
+
+export function entry(path: string): ReturnSkillInfo[] {
+  const skills = findSkills(path);
+  const skillMeta = getSkillMeta(skills);
+  return mergeSkillInfo(skillMeta, skills);
+}
 
 const main = defineCommand({
   meta: {
@@ -16,9 +22,7 @@ const main = defineCommand({
     },
   },
   async run({ args }) {
-    const skills = findSkills(args.path);
-    const skillMeta = getSkillMeta(skills);
-    const skillInfo = mergeSkillInfo(skillMeta, skills);
+    const skillInfo = entry(args.path);
 
     console.log(`Found ${skillInfo.length} skill(s) in ${args.path}`);
     console.log("---");

@@ -22,16 +22,13 @@ const mockReadSkillsLock = vi.mocked(readSkillsLock);
 
 const PROJECT = "/project";
 
-type FsNode =
-  | { type: "dir"; children?: string[] }
-  | { type: "file"; content: string };
+type FsNode = { type: "dir"; children?: string[] } | { type: "file"; content: string };
 
 function mockFs(tree: Record<string, FsNode>) {
   const resolve = (p: unknown): string => {
     const path = String(p);
     const entry = tree[path];
-    if (!entry)
-      throw Object.assign(new Error(`ENOENT: ${path}`), { code: "ENOENT" });
+    if (!entry) throw Object.assign(new Error(`ENOENT: ${path}`), { code: "ENOENT" });
     return path;
   };
 

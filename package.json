@@ -12,13 +12,13 @@
     "type": "git",
     "url": "git+https://github.com/composable-tu/skills-license-checker.git"
   },
+  "bin": {
+    "skills-license-checker": "./dist/index.mjs"
+  },
   "files": [
     "dist"
   ],
   "type": "module",
-  "bin": {
-    "skills-license-checker": "./dist/index.mjs"
-  },
   "types": "./dist/index.d.cts",
   "exports": {
     ".": "./dist/index.mjs",
@@ -47,14 +47,14 @@
     "vite": "catalog:",
     "vite-plus": "catalog:"
   },
-  "inlinedDependencies": {
-    "citty": "0.2.2"
-  },
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
       "version": "11.17.0",
       "onFail": "download"
     }
+  },
+  "inlinedDependencies": {
+    "citty": "0.2.2"
   }
 }
