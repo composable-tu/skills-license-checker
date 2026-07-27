@@ -4,13 +4,6 @@ import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach } from "vite-plus/test";
 import { entry } from "../src/index.ts";
 
-// Tracks the temp directory created per test for automatic cleanup.
-let tempDir: string;
-
-afterEach(() => {
-  if (tempDir) rmSync(tempDir, { recursive: true, force: true });
-});
-
 /** Converts a key-value map into a YAML frontmatter block. */
 function buildFrontmatter(meta: Record<string, string | undefined>): string {
   const lines = ["---"];
@@ -45,8 +38,8 @@ function createSkillFixture(opts?: {
     version: "1.0.0",
   };
 
-  tempDir = mkdtempSync(join(tmpdir(), "skills-test-"));
-  const skillDir = join(tempDir, ".claude", "skills", name);
+  const root = mkdtempSync(join(tmpdir(), "skills-test-"));
+  const skillDir = join(root, ".claude", "skills", name);
   mkdirSync(skillDir, { recursive: true });
   writeFileSync(join(skillDir, "SKILL.md"), buildFrontmatter(meta));
 
@@ -55,16 +48,29 @@ function createSkillFixture(opts?: {
   }
 
   if (opts?.lockFile) {
-    writeFileSync(join(tempDir, "skills-lock.json"), JSON.stringify(opts.lockFile));
+    writeFileSync(join(root, "skills-lock.json"), JSON.stringify(opts.lockFile));
   }
 
-  return tempDir;
+  return root;
 }
 
 describe("entry", () => {
+  const dirs: string[] = [];
+
+  afterEach(() => {
+    for (const dir of dirs) rmSync(dir, { recursive: true, force: true });
+    dirs.length = 0;
+  });
+
+  function fixture(opts?: Parameters<typeof createSkillFixture>[0]) {
+    const root = createSkillFixture(opts);
+    dirs.push(root);
+    return root;
+  }
+
   // Default fixture: full frontmatter (name, description, license, author, version).
   it("finds a skill with full metadata", () => {
-    const root = createSkillFixture();
+    const root = fixture();
     const result = entry(root);
 
     expect(result).toHaveLength(1);
@@ -79,7 +85,7 @@ describe("entry", () => {
 
   // Only `name` and `description` are present; all optional fields should be absent.
   it("handles skills with only required fields", () => {
-    const root = createSkillFixture({
+    const root = fixture({
       name: "minimal-skill",
       meta: { name: "minimal-skill", description: "Minimal skill" },
     });
@@ -97,7 +103,7 @@ describe("entry", () => {
 
   // When a skills-lock.json maps a skill to a GitHub source, sourceUrl should be resolved.
   it("resolves sourceUrl from skills-lock.json", () => {
-    const root = createSkillFixture({
+    const root = fixture({
       lockFile: {
         skills: {
           "test-skill": { source: "user/repo", sourceType: "github" },
@@ -111,15 +117,16 @@ describe("entry", () => {
 
   // An empty directory with no agent skill folders should yield an empty result.
   it("returns empty array when no skills directory exists", () => {
-    tempDir = mkdtempSync(join(tmpdir(), "skills-test-empty-"));
-    const result = entry(tempDir);
+    const root = mkdtempSync(join(tmpdir(), "skills-test-empty-"));
+    dirs.push(root);
+    const result = entry(root);
 
     expect(result).toHaveLength(0);
   });
 
   // licenseContent is omitted from output by default.
   it("does not include licenseContent by default", () => {
-    const root = createSkillFixture({
+    const root = fixture({
       licenseFile: { name: "LICENSE", content: "MIT License\n\n..." },
     });
     const result = entry(root);
@@ -131,8 +138,21 @@ describe("entry", () => {
 const MIT_LICENSE_TEXT = "MIT License\n\nCopyright (c) test";
 
 describe("license content", () => {
+  const dirs: string[] = [];
+
+  afterEach(() => {
+    for (const dir of dirs) rmSync(dir, { recursive: true, force: true });
+    dirs.length = 0;
+  });
+
+  function fixture(opts?: Parameters<typeof createSkillFixture>[0]) {
+    const root = createSkillFixture(opts);
+    dirs.push(root);
+    return root;
+  }
+
   it("reads LICENSE file from skill directory", () => {
-    const root = createSkillFixture({
+    const root = fixture({
       licenseFile: { name: "LICENSE", content: MIT_LICENSE_TEXT },
     });
     const result = entry(root, true);
@@ -141,7 +161,7 @@ describe("license content", () => {
   });
 
   it("falls back to LICENSE.md when LICENSE is absent", () => {
-    const root = createSkillFixture({
+    const root = fixture({
       licenseFile: { name: "LICENSE.md", content: "# MIT" },
     });
     const result = entry(root, true);
@@ -150,27 +170,18 @@ describe("license content", () => {
   });
 
   it("uses SPDX text when no license file on disk", () => {
-    const root = createSkillFixture();
+    const root = fixture();
     const result = entry(root, true);
 
     expect(result[0].licenseContent).toContain("Permission is hereby granted");
   });
 
   it("returns undefined when no license file and no frontmatter license", () => {
-    const root = createSkillFixture({
+    const root = fixture({
       meta: { name: "no-license", description: "No license" },
     });
     const result = entry(root, true);
 
     expect(result[0].licenseContent).toBeUndefined();
-  });
-
-  it("does not include licenseContent by default", () => {
-    const root = createSkillFixture({
-      licenseFile: { name: "LICENSE", content: MIT_LICENSE_TEXT },
-    });
-    const result = entry(root);
-
-    expect(result[0]).not.toHaveProperty("licenseContent");
   });
 });
