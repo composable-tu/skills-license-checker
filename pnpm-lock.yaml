@@ -222,6 +222,9 @@ importers:
       git-url-parse:
         specifier: ^16.1.0
         version: 16.1.0
+      spdx-license-list:
+        specifier: ^6.12.0
+        version: 6.12.0
     devDependencies:
       '@types/node':
         specifier: ^26.1.1
@@ -1275,6 +1278,10 @@ packages:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
 
+  spdx-license-list@6.12.0:
+    resolution: {integrity: sha512-+nUYqm3aZMSHbjsthK+i/HHI2okTElCvqwUd4k8QcSk+FTGgjq+fsdFj2wZOaX6XmR2JdWhf/NeflNnvKOjcnQ==}
+    engines: {node: '>=8'}
+
   sprintf-js@1.0.3:
     resolution: {integrity: sha512-D9cPgkvLlV3t3IzL0D0YLvGA9Ahk4PcvVwUbN0dSGr1aP0Nrt4AEnTUbuGvquEC0mA64Gqt1fzirlRs5ibXx8g==}
 
@@ -2094,6 +2101,8 @@ snapshots:
       totalist: 3.0.1
 
   source-map-js@1.2.1: {}
+
+  spdx-license-list@6.12.0: {}
 
   sprintf-js@1.0.3: {}
 

@@ -2,10 +2,10 @@ import { defineCommand, runMain } from "citty";
 import { findSkills, mergeSkillInfo, type ReturnSkillInfo } from "./utils/find-skill.ts";
 import { getSkillMeta } from "./utils/parse-skill-front.ts";
 
-export function entry(path: string): ReturnSkillInfo[] {
+export function entry(path: string, includeLicenseContent = false): ReturnSkillInfo[] {
   const skills = findSkills(path);
   const skillMeta = getSkillMeta(skills);
-  return mergeSkillInfo(skillMeta, skills);
+  return mergeSkillInfo(skillMeta, skills, includeLicenseContent);
 }
 
 const main = defineCommand({
@@ -25,9 +25,14 @@ const main = defineCommand({
       description: "Output format",
       default: "text",
     },
+    "include-license-content": {
+      type: "boolean",
+      description: "Include full license file content in output",
+      default: false,
+    },
   },
   async run({ args }) {
-    const skillInfo = entry(args.path);
+    const skillInfo = entry(args.path, args["include-license-content"]);
 
     switch (args.format) {
       case "json":
@@ -44,6 +49,7 @@ const main = defineCommand({
           if (skill.author) console.log(`Author: ${skill.author}`);
           if (skill.version) console.log(`Version: ${skill.version}`);
           if (skill.sourceUrl) console.log(`Source: ${skill.sourceUrl}`);
+          if (skill.licenseContent) console.log(`License Content: ${skill.licenseContent}`);
           console.log("---");
         }
         break;

@@ -45,10 +45,11 @@ vpx skills-license-checker
 
 ## CLI 选项
 
-| 选项       | 类型     | 默认值          | 说明                           |
-|------------|----------|-----------------|--------------------------------|
-| `--path`   | `string` | `process.cwd()` | 指定扫描 Skills 的项目根路径   |
-| `--format` | `string` | `text`          | 指定输出格式：`text` 或 `json` |
+| 选项                        | 类型      | 默认值          | 说明                           |
+|-----------------------------|-----------|-----------------|--------------------------------|
+| `--path`                    | `string`  | `process.cwd()` | 指定扫描 Skills 的项目根路径   |
+| `--format`                  | `string`  | `text`          | 指定输出格式：`text` 或 `json` |
+| `--include-license-content` | `boolean` | `false`         | 在输出中包含完整许可证文件内容 |
 
 以文本输出（默认）：
 
@@ -64,6 +65,23 @@ Source: https://github.com/user/repo
 ---
 ```
 
+带 `--include-license-content` 的文本输出：
+
+```
+Found 1 skill(s) in /path/to/project
+---
+Name: my-skill
+Description: A helpful skill
+License: MIT
+License Content: MIT License
+
+Copyright (c) 2024 Jane Doe
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+...
+---
+```
+
 以 JSON 输出：
 
 ```json
@@ -75,6 +93,22 @@ Source: https://github.com/user/repo
     "author": "Jane Doe",
     "version": "1.0.0",
     "sourceUrl": "https://github.com/user/repo"
+  }
+]
+```
+
+带 `--include-license-content` 的 JSON 输出：
+
+```json
+[
+  {
+    "name": "my-skill",
+    "description": "A helpful skill",
+    "license": "MIT",
+    "author": "Jane Doe",
+    "version": "1.0.0",
+    "sourceUrl": "https://github.com/user/repo",
+    "licenseContent": "MIT License\n\nCopyright (c) 2024 Jane Doe\n\nPermission is hereby granted, free of charge, to any person obtaining a copy..."
   }
 ]
 ```

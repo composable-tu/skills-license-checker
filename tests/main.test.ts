@@ -12,9 +12,7 @@ afterEach(() => {
 });
 
 /** Converts a key-value map into a YAML frontmatter block. */
-function buildFrontmatter(
-  meta: Record<string, string | undefined>,
-): string {
+function buildFrontmatter(meta: Record<string, string | undefined>): string {
   const lines = ["---"];
   for (const [key, value] of Object.entries(meta)) {
     if (value !== undefined) lines.push(`${key}: ${value}`);
@@ -36,6 +34,7 @@ function createSkillFixture(opts?: {
   name?: string;
   meta?: Record<string, string | undefined>;
   lockFile?: Record<string, unknown>;
+  licenseFile?: { name: string; content: string };
 }) {
   const name = opts?.name ?? "test-skill";
   const meta = opts?.meta ?? {
@@ -51,11 +50,12 @@ function createSkillFixture(opts?: {
   mkdirSync(skillDir, { recursive: true });
   writeFileSync(join(skillDir, "SKILL.md"), buildFrontmatter(meta));
 
+  if (opts?.licenseFile) {
+    writeFileSync(join(skillDir, opts.licenseFile.name), opts.licenseFile.content);
+  }
+
   if (opts?.lockFile) {
-    writeFileSync(
-      join(tempDir, "skills-lock.json"),
-      JSON.stringify(opts.lockFile),
-    );
+    writeFileSync(join(tempDir, "skills-lock.json"), JSON.stringify(opts.lockFile));
   }
 
   return tempDir;
@@ -115,5 +115,62 @@ describe("entry", () => {
     const result = entry(tempDir);
 
     expect(result).toHaveLength(0);
+  });
+
+  // licenseContent is omitted from output by default.
+  it("does not include licenseContent by default", () => {
+    const root = createSkillFixture({
+      licenseFile: { name: "LICENSE", content: "MIT License\n\n..." },
+    });
+    const result = entry(root);
+
+    expect(result[0]).not.toHaveProperty("licenseContent");
+  });
+});
+
+const MIT_LICENSE_TEXT = "MIT License\n\nCopyright (c) test";
+
+describe("license content", () => {
+  it("reads LICENSE file from skill directory", () => {
+    const root = createSkillFixture({
+      licenseFile: { name: "LICENSE", content: MIT_LICENSE_TEXT },
+    });
+    const result = entry(root, true);
+
+    expect(result[0].licenseContent).toBe(MIT_LICENSE_TEXT);
+  });
+
+  it("falls back to LICENSE.md when LICENSE is absent", () => {
+    const root = createSkillFixture({
+      licenseFile: { name: "LICENSE.md", content: "# MIT" },
+    });
+    const result = entry(root, true);
+
+    expect(result[0].licenseContent).toBe("# MIT");
+  });
+
+  it("uses SPDX text when no license file on disk", () => {
+    const root = createSkillFixture();
+    const result = entry(root, true);
+
+    expect(result[0].licenseContent).toContain("Permission is hereby granted");
+  });
+
+  it("returns undefined when no license file and no frontmatter license", () => {
+    const root = createSkillFixture({
+      meta: { name: "no-license", description: "No license" },
+    });
+    const result = entry(root, true);
+
+    expect(result[0].licenseContent).toBeUndefined();
+  });
+
+  it("does not include licenseContent by default", () => {
+    const root = createSkillFixture({
+      licenseFile: { name: "LICENSE", content: MIT_LICENSE_TEXT },
+    });
+    const result = entry(root);
+
+    expect(result[0]).not.toHaveProperty("licenseContent");
   });
 });
