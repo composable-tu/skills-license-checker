@@ -54,8 +54,8 @@ export function getSkillMeta(skills: SkillFind[]): ParseSkillMeta[] {
       version: attrs.meta?.version ?? attrs.version,
     };
     if (attrs.license != null) {
-      const license = spdxCorrect(attrs.license) ?? undefined;
-      if (license) result.license = license;
+      const normalized = spdxCorrect(attrs.license.trim());
+      result.license = (normalized ?? attrs.license) || undefined;
     }
     return result;
   });
