@@ -1,13 +1,13 @@
 {
   "name": "skills-license-checker",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A JS library to help JS/TS developers quickly generate information regarding Agent Skills for use at the project level.",
   "homepage": "https://github.com/composable-tu/skills-license-checker#readme",
   "bugs": {
     "url": "https://github.com/composable-tu/skills-license-checker/issues"
   },
-  "license": "",
-  "author": "Author Name <author.name@mail.com>",
+  "license": "MulanPSL-2.0",
+  "author": "composable-tu",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/composable-tu/skills-license-checker.git"
