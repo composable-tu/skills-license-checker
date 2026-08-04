@@ -79,22 +79,28 @@ function readSkillFile(skillDirPath: string): SkillFind | undefined {
 }
 
 function scanSkillsDir(skillsDirPath: string): SkillFind[] {
+  const result: SkillFind[] = [];
   try {
-    return readdirSync(skillsDirPath)
-      .map((entry) => join(skillsDirPath, entry))
-      .filter(isDirectory)
-      .map(readSkillFile)
-      .filter((skill): skill is SkillFind => skill !== undefined);
+    for (const entry of readdirSync(skillsDirPath)) {
+      const entryPath = join(skillsDirPath, entry);
+      if (!isDirectory(entryPath)) continue;
+      const skill = readSkillFile(entryPath);
+      if (skill) result.push(skill);
+    }
   } catch {
     return [];
   }
+  return result;
 }
 
 function findAgentSkillDirs(projectRoot: string): SkillFind[] {
-  return agentDirs
-    .map((agentDir) => join(projectRoot, agentDir, "skills"))
-    .filter(isDirectory)
-    .flatMap(scanSkillsDir);
+  const result: SkillFind[] = [];
+  for (const agentDir of agentDirs) {
+    const skillsPath = join(projectRoot, agentDir, "skills");
+    if (!isDirectory(skillsPath)) continue;
+    result.push(...scanSkillsDir(skillsPath));
+  }
+  return result;
 }
 
 export function findSkills(projectRoot: string): SkillFind[] {
@@ -114,8 +120,6 @@ export function findSkills(projectRoot: string): SkillFind[] {
 
 /* ----------------------------- License report ---------------------------- */
 
-const contentHash = (text: string): string => createHash("sha256").update(text).digest("hex");
-
 /** A license whose full text is known, before hashing. */
 interface ResolvedLicense {
   spdxId?: string;
@@ -123,62 +127,61 @@ interface ResolvedLicense {
   text: string;
 }
 
+/** The licenses a skill resolves to. */
+interface SkillLicenses {
+  primaryLicense?: string;
+  hashes: string[];
+}
+
 /**
- * Resolve the license text a skill provides.
+ * Resolve, hash, and register every license a skill provides.
  *
  * A LICENSE file shipped with the skill is authoritative and yields a single
  * entry. Otherwise every SPDX id named in the declaration is resolved against
- * the canonical SPDX license list.
+ * the canonical SPDX license list. Each license's SHA-256 text hash is
+ * registered into the shared map, keeping the first occurrence of each hash.
+ * Returns the primary license (the first resolved SPDX id, or the raw
+ * declaration) and the hash list.
  */
-function resolveLicenses(
-  declaration: string | undefined,
-  fileText: string | undefined,
-): ResolvedLicense[] {
+function collectSkillLicenses(
+  meta: ParseSkillMeta,
+  found: SkillFind | undefined,
+  licenses: Map<string, LicenseInfo>,
+): SkillLicenses {
+  const declaration = meta.license ?? "";
+  const fileText = found?.licenseContent;
+
+  const resolved: ResolvedLicense[] = [];
   if (fileText) {
-    const spdxId = resolveSpdxId(declaration ?? "");
-    return [
-      {
+    const spdxId = resolveSpdxId(declaration);
+    resolved.push({
+      spdxId,
+      name: spdxId ? (getSpdxLicenseName(spdxId) ?? spdxId) : "License",
+      text: fileText,
+    });
+  } else {
+    for (const spdxId of resolveSpdxIds(declaration)) {
+      resolved.push({
         spdxId,
-        name: spdxId ? (getSpdxLicenseName(spdxId) ?? spdxId) : "License",
-        text: fileText,
-      },
-    ];
-  }
-  return resolveSpdxIds(declaration ?? "").map((spdxId) => ({
-    spdxId,
-    name: getSpdxLicenseName(spdxId) ?? spdxId,
-    text: getSpdxLicenseText(spdxId) ?? "",
-  }));
-}
-
-/**
- * Wrap a resolved license in a report entry.
- *
- * The hash is the SHA-256 of the full text, so identical text collapses into
- * one shared entry while distinct text stays separate — even under the same
- * SPDX id.
- */
-function toLicenseInfo({ spdxId, name, text }: ResolvedLicense): LicenseInfo {
-  return { hash: contentHash(text), name, spdxId, content: text };
-}
-
-/** The primary license of a skill: its first resolved SPDX id, or the raw declaration. */
-function primaryLicense(
-  declaration: string | undefined,
-  entries: LicenseInfo[],
-): string | undefined {
-  const spdxId = entries.find((entry) => entry.spdxId)?.spdxId;
-  if (spdxId) return spdxId;
-  return declaration ? (resolveSpdxId(declaration) ?? declaration) : undefined;
-}
-
-/** Register entries into a shared map, keeping the first occurrence of each hash. */
-function registerLicenses(map: Map<string, LicenseInfo>, entries: LicenseInfo[]): void {
-  for (const entry of entries) {
-    if (!map.has(entry.hash)) {
-      map.set(entry.hash, entry);
+        name: getSpdxLicenseName(spdxId) ?? spdxId,
+        text: getSpdxLicenseText(spdxId) ?? "",
+      });
     }
   }
+
+  const hashes = resolved.map(({ spdxId, name, text }) => {
+    const hash = createHash("sha256").update(text).digest("hex");
+    if (!licenses.has(hash)) {
+      licenses.set(hash, { hash, name, spdxId, content: text });
+    }
+    return hash;
+  });
+
+  const spdxId = resolved.find((entry) => entry.spdxId)?.spdxId;
+  const primaryLicense =
+    spdxId ?? (declaration ? (resolveSpdxId(declaration) ?? declaration) : undefined);
+
+  return { primaryLicense, hashes };
 }
 
 export function mergeSkillInfo(
@@ -191,14 +194,13 @@ export function mergeSkillInfo(
 
   const skills = skillMeta.map((meta) => {
     const found = byName.get(meta.name);
-    const entries = resolveLicenses(meta.license, found?.licenseContent).map(toLicenseInfo);
-    registerLicenses(licenses, entries);
+    const { primaryLicense, hashes } = collectSkillLicenses(meta, found, licenses);
 
     return {
       name: meta.name,
       description: meta.description,
-      license: primaryLicense(meta.license, entries),
-      licenses: entries.map((entry) => entry.hash),
+      license: primaryLicense,
+      licenses: hashes,
       author: meta.author,
       version: meta.version,
       sourceUrl: found?.sourceUrl,
