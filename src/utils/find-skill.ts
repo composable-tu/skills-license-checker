@@ -10,25 +10,45 @@
  * See the Mulan PSL v2 for more details.
  */
 
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 import { agentDirs } from "../config/agent-dirs.ts";
 import { findLicenseFile } from "./find-license.ts";
 import { readSkillsLock } from "./parse-vercel-skills-lock.ts";
 import type { ParseSkillMeta } from "./parse-skill-front.ts";
-import { getSpdxLicenseText } from "./spdx-license.ts";
+import {
+  getSpdxLicenseName,
+  getSpdxLicenseText,
+  resolveSpdxId,
+  resolveSpdxIds,
+} from "./spdx-license.ts";
 
-/** Exported types */
-export interface ReturnSkillInfo {
+/** A single license resolved to its full text. */
+export interface LicenseInfo {
+  hash: string;
+  name: string;
+  spdxId?: string;
+  content: string;
+}
+
+/** A skill entry within a license report. */
+export interface SkillInfo {
   name: string;
   description: string;
   license?: string;
+  licenses: string[];
   author?: string;
   version?: string;
   sourceUrl?: string;
-  licenseContent?: string;
 }
 
+export interface SkillLicenseReport {
+  skills: SkillInfo[];
+  licenses: Record<string, LicenseInfo>;
+}
+
+/** A raw skill found on disk, before front matter is parsed. */
 export interface SkillFind {
   name: string;
   content: string;
@@ -47,12 +67,10 @@ function isDirectory(path: string): boolean {
 }
 
 function readSkillFile(skillDirPath: string): SkillFind | undefined {
-  const skillFilePath = join(skillDirPath, SKILL_FILE);
   try {
-    const content = readFileSync(skillFilePath, "utf-8");
     return {
       name: basename(skillDirPath),
-      content,
+      content: readFileSync(join(skillDirPath, SKILL_FILE), "utf-8"),
       licenseContent: findLicenseFile(skillDirPath),
     };
   } catch {
@@ -61,64 +79,140 @@ function readSkillFile(skillDirPath: string): SkillFind | undefined {
 }
 
 function scanSkillsDir(skillsDirPath: string): SkillFind[] {
-  const results: SkillFind[] = [];
+  const result: SkillFind[] = [];
   try {
-    const entries = readdirSync(skillsDirPath);
-    for (const entry of entries) {
+    for (const entry of readdirSync(skillsDirPath)) {
       const entryPath = join(skillsDirPath, entry);
       if (!isDirectory(entryPath)) continue;
       const skill = readSkillFile(entryPath);
-      if (skill) results.push(skill);
+      if (skill) result.push(skill);
     }
-  } catch {}
-  return results;
+  } catch {
+    return [];
+  }
+  return result;
 }
 
 function findAgentSkillDirs(projectRoot: string): SkillFind[] {
-  const results: SkillFind[] = [];
+  const result: SkillFind[] = [];
   for (const agentDir of agentDirs) {
-    const agentPath = join(projectRoot, agentDir);
-    if (!isDirectory(agentPath)) continue;
-    const skillsPath = join(agentPath, "skills");
-    results.push(...scanSkillsDir(skillsPath));
+    const skillsPath = join(projectRoot, agentDir, "skills");
+    if (!isDirectory(skillsPath)) continue;
+    result.push(...scanSkillsDir(skillsPath));
   }
-  return results;
+  return result;
 }
 
 export function findSkills(projectRoot: string): SkillFind[] {
-  const lockMap = readSkillsLock(projectRoot);
+  const sourceByName = new Map(
+    readSkillsLock(projectRoot).map((entry) => [entry.name, entry.sourceUrl]),
+  );
   const seen = new Set<string>();
+
   return findAgentSkillDirs(projectRoot)
     .filter((skill) => {
       if (seen.has(skill.name)) return false;
       seen.add(skill.name);
       return true;
     })
-    .map((skill) => ({
-      ...skill,
-      sourceUrl: lockMap.find((entry) => entry.name === skill.name)?.sourceUrl,
-    }));
+    .map((skill) => ({ ...skill, sourceUrl: sourceByName.get(skill.name) }));
 }
 
-const resolveLicenseContent = (
-  licenseContent: string | undefined,
-  spdxId: string | undefined,
-): string | undefined => licenseContent ?? (spdxId ? getSpdxLicenseText(spdxId) : undefined);
+/* ----------------------------- License report ---------------------------- */
+
+/** A license whose full text is known, before hashing. */
+interface ResolvedLicense {
+  spdxId?: string;
+  name: string;
+  text: string;
+}
+
+/** The licenses a skill resolves to. */
+interface SkillLicenses {
+  primaryLicense?: string;
+  hashes: string[];
+}
+
+/**
+ * Resolve, hash, and register every license a skill provides.
+ *
+ * A LICENSE file shipped with the skill is authoritative and yields a single
+ * entry. Otherwise every SPDX id named in the declaration is resolved against
+ * the canonical SPDX license list. Each license's SHA-256 text hash is
+ * registered into the shared map, keeping the first occurrence of each hash.
+ * Returns the primary license (the first resolved SPDX id, or the raw
+ * declaration) and the hash list.
+ */
+function collectSkillLicenses(
+  meta: ParseSkillMeta,
+  found: SkillFind | undefined,
+  licenses: Map<string, LicenseInfo>,
+): SkillLicenses {
+  const declaration = meta.license ?? "";
+  const fileText = found?.licenseContent;
+
+  const resolved: ResolvedLicense[] = [];
+  if (fileText) {
+    const spdxId = resolveSpdxId(declaration);
+    resolved.push({
+      spdxId,
+      name: spdxId ? (getSpdxLicenseName(spdxId) ?? spdxId) : "License",
+      text: fileText,
+    });
+  } else {
+    for (const spdxId of resolveSpdxIds(declaration)) {
+      resolved.push({
+        spdxId,
+        name: getSpdxLicenseName(spdxId) ?? spdxId,
+        text: getSpdxLicenseText(spdxId) ?? "",
+      });
+    }
+  }
+
+  const hashes = resolved.map(({ spdxId, name, text }) => {
+    const hash = createHash("sha256").update(text).digest("hex");
+    if (!licenses.has(hash)) {
+      licenses.set(hash, { hash, name, spdxId, content: text });
+    }
+    return hash;
+  });
+
+  const spdxId = resolved.find((entry) => entry.spdxId)?.spdxId;
+  const primaryLicense =
+    spdxId ?? (declaration ? (resolveSpdxId(declaration) ?? declaration) : undefined);
+
+  return { primaryLicense, hashes };
+}
 
 export function mergeSkillInfo(
   skillMeta: ParseSkillMeta[],
   skillFind: SkillFind[],
   includeLicenseContent = false,
-): ReturnSkillInfo[] {
-  const findByName = new Map(skillFind.map((s) => [s.name, s]));
-  return skillMeta.map((meta) => {
-    const found = findByName.get(meta.name);
-    const sourceUrl = found?.sourceUrl;
-    const licenseContent = includeLicenseContent
-      ? resolveLicenseContent(found?.licenseContent, meta.license)
-      : undefined;
-    const result: ReturnSkillInfo = { ...meta, sourceUrl: sourceUrl };
-    if (licenseContent) result.licenseContent = licenseContent;
-    return result;
+): SkillLicenseReport {
+  const byName = new Map(skillFind.map((skill) => [skill.name, skill]));
+  const licenses = new Map<string, LicenseInfo>();
+
+  const skills = skillMeta.map((meta) => {
+    const found = byName.get(meta.name);
+    const { primaryLicense, hashes } = collectSkillLicenses(meta, found, licenses);
+
+    return {
+      name: meta.name,
+      description: meta.description,
+      license: primaryLicense,
+      licenses: hashes,
+      author: meta.author,
+      version: meta.version,
+      sourceUrl: found?.sourceUrl,
+    };
   });
+
+  const licensesRecord = Object.fromEntries(
+    Array.from(licenses.entries()).map(([hash, info]) => [
+      hash,
+      includeLicenseContent ? info : { ...info, content: "" },
+    ]),
+  );
+
+  return { skills, licenses: licensesRecord };
 }

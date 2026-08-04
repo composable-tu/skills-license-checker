@@ -11,10 +11,10 @@
  */
 
 import { defineCommand, runMain } from "citty";
-import { findSkills, mergeSkillInfo, type ReturnSkillInfo } from "./utils/find-skill.ts";
+import { findSkills, mergeSkillInfo, type SkillLicenseReport } from "./utils/find-skill.ts";
 import { getSkillMeta } from "./utils/parse-skill-front.ts";
 
-export function entry(path: string, includeLicenseContent = false): ReturnSkillInfo[] {
+export function entry(path: string, includeLicenseContent = false): SkillLicenseReport {
   const skills = findSkills(path);
   const skillMeta = getSkillMeta(skills);
   return mergeSkillInfo(skillMeta, skills, includeLicenseContent);
@@ -58,17 +58,27 @@ const main = defineCommand({
         console.log(JSON.stringify(skillInfo, null, 2));
         break;
       default:
-        console.log(`Found ${skillInfo.length} skill(s) in ${args.path}`);
+        console.log(`Found ${skillInfo.skills.length} skill(s) in ${args.path}`);
         console.log("---");
 
-        for (const skill of skillInfo) {
+        for (const skill of skillInfo.skills) {
           console.log(`Name: ${skill.name}`);
           console.log(`Description: ${skill.description}`);
-          console.log(`License: ${skill.license || "Unknown"}`);
+          if (skill.licenses.length > 0) {
+            for (const hash of skill.licenses) {
+              const license = skillInfo.licenses[hash];
+              const id = license?.spdxId ?? license?.name ?? hash;
+              console.log(`License: ${id}`);
+              if (args["include-license-content"] && license?.content) {
+                console.log(`License Content:\n${license.content}`);
+              }
+            }
+          } else {
+            console.log(`License: ${skill.license || "Unknown"}`);
+          }
           if (skill.author) console.log(`Author: ${skill.author}`);
           if (skill.version) console.log(`Version: ${skill.version}`);
           if (skill.sourceUrl) console.log(`Source: ${skill.sourceUrl}`);
-          if (skill.licenseContent) console.log(`License Content: ${skill.licenseContent}`);
           console.log("---");
         }
         break;

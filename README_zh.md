@@ -45,11 +45,11 @@ vpx skills-license-checker
 
 ## CLI 选项
 
-| 选项                        | 类型      | 默认值          | 说明                           |
-| --------------------------- | --------- | --------------- | ------------------------------ |
-| `--path`                    | `string`  | `process.cwd()` | 指定扫描 Skills 的项目根路径   |
-| `--format`                  | `string`  | `text`          | 指定输出格式：`text` 或 `json` |
-| `--include-license-content` | `boolean` | `false`         | 在输出中包含完整许可证文件内容 |
+| 选项                        | 类型      | 默认值          | 说明                               |
+| --------------------------- | --------- | --------------- | ---------------------------------- |
+| `--path`                    | `string`  | `process.cwd()` | 指定扫描 Skills 的项目根路径       |
+| `--format`                  | `string`  | `text`          | 指定输出格式：`text` 或 `json`     |
+| `--include-license-content` | `boolean` | `false`         | 在 `licenses` 映射中包含许可证全文 |
 
 以文本输出（默认）：
 
@@ -65,6 +65,8 @@ Source: https://github.com/user/repo
 ---
 ```
 
+每行许可证输出都会展示其解析出的 SPDX id（或原始声明），因此对于 `"Apache-2.0 OR MIT"` 等多许可证 Skill，每个涉及的许可证都会单独打印一行。
+
 带 `--include-license-content` 的文本输出：
 
 ```
@@ -73,7 +75,8 @@ Found 1 skill(s) in /path/to/project
 Name: my-skill
 Description: A helpful skill
 License: MIT
-License Content: MIT License
+License Content:
+MIT License
 
 Copyright (c) 2024 Jane Doe
 
@@ -85,32 +88,64 @@ Permission is hereby granted, free of charge, to any person obtaining a copy
 以 JSON 输出：
 
 ```json
-[
-  {
-    "name": "my-skill",
-    "description": "A helpful skill",
-    "license": "MIT",
-    "author": "Jane Doe",
-    "version": "1.0.0",
-    "sourceUrl": "https://github.com/user/repo"
+{
+  "skills": [
+    {
+      "name": "my-skill",
+      "description": "A helpful skill",
+      "license": "MIT",
+      "licenses": ["f1b3c2d4e5a6978b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d7"],
+      "author": "Jane Doe",
+      "version": "1.0.0",
+      "sourceUrl": "https://github.com/user/repo"
+    }
+  ],
+  "licenses": {
+    "f1b3c2d4e5a6978b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d7": {
+      "hash": "f1b3c2d4e5a6978b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d7",
+      "name": "MIT License",
+      "spdxId": "MIT",
+      "content": ""
+    }
   }
-]
+}
 ```
+
+每个 skill 的 `licenses` 是许可证哈希列表。哈希是许可证全文的 SHA-256 摘要，因此内容相同会合并为同一条目，而相同 SPDX ID 下内容不同的许可证也会被保留为独立条目。顶层的 `licenses` 映射将每个哈希对应到其元数据，因此 SPDX 表达式（如 `"Apache-2.0 OR MIT"`）会展开为所涉及的全部许可证。`content` 字段承载许可证全文，仅在 `--include-license-content` 时填充。
 
 带 `--include-license-content` 的 JSON 输出：
 
 ```json
-[
-  {
-    "name": "my-skill",
-    "description": "A helpful skill",
-    "license": "MIT",
-    "author": "Jane Doe",
-    "version": "1.0.0",
-    "sourceUrl": "https://github.com/user/repo",
-    "licenseContent": "MIT License\n\nCopyright (c) 2024 Jane Doe\n\nPermission is hereby granted, free of charge, to any person obtaining a copy..."
+{
+  "skills": [
+    {
+      "name": "my-skill",
+      "description": "A helpful skill",
+      "license": "Apache-2.0",
+      "licenses": [
+        "a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+        "f1b3c2d4e5a6978b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d7"
+      ],
+      "author": "Jane Doe",
+      "version": "1.0.0",
+      "sourceUrl": "https://github.com/user/repo"
+    }
+  ],
+  "licenses": {
+    "a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5": {
+      "hash": "a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "name": "Apache License 2.0",
+      "spdxId": "Apache-2.0",
+      "content": "Apache License\n..."
+    },
+    "f1b3c2d4e5a6978b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d7": {
+      "hash": "f1b3c2d4e5a6978b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d7",
+      "name": "MIT License",
+      "spdxId": "MIT",
+      "content": "MIT License\n..."
+    }
   }
-]
+}
 ```
 
 ## 开发
