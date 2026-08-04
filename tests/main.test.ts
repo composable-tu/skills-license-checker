@@ -18,10 +18,20 @@ import { describe, it, expect, afterEach } from "vite-plus/test";
 import { entry } from "../src/index.ts";
 
 /** Converts a key-value map into a YAML frontmatter block. */
-function buildFrontmatter(meta: Record<string, string | undefined>): string {
+function buildFrontmatter(
+  meta: Record<string, string | Record<string, string> | undefined>,
+): string {
   const lines = ["---"];
   for (const [key, value] of Object.entries(meta)) {
-    if (value) lines.push(`${key}: ${value}`);
+    if (value == null) continue;
+    if (typeof value === "object") {
+      lines.push(`${key}:`);
+      for (const [nestedKey, nestedValue] of Object.entries(value)) {
+        if (nestedValue != null) lines.push(`  ${nestedKey}: ${nestedValue}`);
+      }
+    } else {
+      lines.push(`${key}: ${value}`);
+    }
   }
   lines.push("---");
   return lines.join("\n");
@@ -38,7 +48,7 @@ function buildFrontmatter(meta: Record<string, string | undefined>): string {
  */
 function createSkillFixture(opts?: {
   name?: string;
-  meta?: Record<string, string | undefined>;
+  meta?: Record<string, string | Record<string, string> | undefined>;
   lockFile?: Record<string, unknown>;
   licenseFile?: { name: string; content: string };
 }) {
@@ -117,6 +127,45 @@ describe("entry", () => {
     expect(result.skills[0].author).toBeUndefined();
     expect(result.skills[0].version).toBeUndefined();
     expect(result.skills[0].licenses).toEqual([]);
+  });
+
+  // The AgentSkills.io spec nests author/version under `metadata`; these should be read.
+  it("parses author and version from a nested metadata field", () => {
+    const root = fixture({
+      name: "meta-skill",
+      meta: {
+        name: "meta-skill",
+        description: "Meta skill",
+        metadata: { author: "Anthony Fu", version: "2026.1.28" },
+      },
+    });
+    const result = entry(root);
+
+    expect(result.skills[0]).toMatchObject({
+      name: "meta-skill",
+      description: "Meta skill",
+      author: "Anthony Fu",
+      version: "2026.1.28",
+    });
+  });
+
+  // Legacy skills inline metadata into the root or use `meta`; both should still work.
+  it("falls back to root and legacy meta fields", () => {
+    const root = fixture({
+      name: "legacy-skill",
+      meta: {
+        name: "legacy-skill",
+        description: "Legacy skill",
+        author: "Root Author",
+        version: "1.0.0",
+      },
+    });
+    const result = entry(root);
+
+    expect(result.skills[0]).toMatchObject({
+      author: "Root Author",
+      version: "1.0.0",
+    });
   });
 
   // When a skills-lock.json maps a skill to a GitHub source, sourceUrl should be resolved.

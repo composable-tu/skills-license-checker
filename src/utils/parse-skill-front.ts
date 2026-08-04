@@ -25,19 +25,21 @@ export interface ParseSkillMeta {
 }
 
 /**
- * Per the AgentSkills.io spec, `meta` is a separate object field, not a root field.
- * Some implementations inline meta fields into the root; this handles both cases.
+ * Per the AgentSkills.io spec, additional metadata lives in a `metadata` object
+ * field. Some implementations use `meta` or inline the fields into the root;
+ * this handles all three cases.
  */
 interface SkillFront {
   name: string;
   description: string;
   license?: string;
+  metadata?: SkillMeta;
   meta?: SkillMeta;
   author?: string;
   version?: string;
 }
 
-/** Separate `meta` object field */
+/** Separate `metadata` (or `meta`) object field */
 interface SkillMeta {
   author?: string;
   version?: string;
@@ -50,8 +52,8 @@ export function getSkillMeta(skills: SkillFind[]): ParseSkillMeta[] {
       name: skill.name,
       description: attrs.description ?? "",
       license: attrs.license != null ? String(attrs.license).trim() || undefined : undefined,
-      author: attrs.meta?.author ?? attrs.author,
-      version: attrs.meta?.version ?? attrs.version,
+      author: attrs.metadata?.author ?? attrs.meta?.author ?? attrs.author,
+      version: attrs.metadata?.version ?? attrs.meta?.version ?? attrs.version,
     };
   });
 }
