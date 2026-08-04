@@ -65,6 +65,8 @@ Source: https://github.com/user/repo
 ---
 ```
 
+每行许可证输出都会展示其解析出的 SPDX id（或原始声明），因此对于 `"Apache-2.0 OR MIT"` 等多许可证 Skill，每个涉及的许可证都会单独打印一行。
+
 带 `--include-license-content` 的文本输出：
 
 ```

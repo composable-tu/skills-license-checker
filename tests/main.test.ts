@@ -201,6 +201,20 @@ describe("license report", () => {
     expect(entry_.content).toBe("Custom proprietary terms");
   });
 
+  it("names a LICENSE-file entry from the canonical SPDX id when the declaration resolves", () => {
+    const root = fixture({
+      licenseFile: { name: "LICENSE", content: MIT_LICENSE_TEXT },
+    });
+    const result = entry(root, true);
+    const entry_ = result.licenses[result.skills[0].licenses[0]];
+
+    expect(entry_).toMatchObject({
+      name: "MIT License",
+      spdxId: "MIT",
+    });
+    expect(entry_.content).toBe(MIT_LICENSE_TEXT);
+  });
+
   it("uses SPDX text when no license file on disk", () => {
     const root = fixture();
     const result = entry(root, true);

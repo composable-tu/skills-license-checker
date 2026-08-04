@@ -64,16 +64,21 @@ const main = defineCommand({
         for (const skill of skillInfo.skills) {
           console.log(`Name: ${skill.name}`);
           console.log(`Description: ${skill.description}`);
-          console.log(`License: ${skill.license || "Unknown"}`);
+          if (skill.licenses.length > 0) {
+            for (const hash of skill.licenses) {
+              const license = skillInfo.licenses[hash];
+              const id = license?.spdxId ?? license?.name ?? hash;
+              console.log(`License: ${id}`);
+              if (args["include-license-content"] && license?.content) {
+                console.log(`License Content:\n${license.content}`);
+              }
+            }
+          } else {
+            console.log(`License: ${skill.license || "Unknown"}`);
+          }
           if (skill.author) console.log(`Author: ${skill.author}`);
           if (skill.version) console.log(`Version: ${skill.version}`);
           if (skill.sourceUrl) console.log(`Source: ${skill.sourceUrl}`);
-          if (args["include-license-content"]) {
-            for (const hash of skill.licenses) {
-              const license = skillInfo.licenses[hash];
-              if (license?.content) console.log(`License Content:\n${license.content}`);
-            }
-          }
           console.log("---");
         }
         break;

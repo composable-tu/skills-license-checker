@@ -135,7 +135,14 @@ function resolveLicenses(
   fileText: string | undefined,
 ): ResolvedLicense[] {
   if (fileText) {
-    return [{ spdxId: resolveSpdxId(declaration ?? ""), name: "License", text: fileText }];
+    const spdxId = resolveSpdxId(declaration ?? "");
+    return [
+      {
+        spdxId,
+        name: spdxId ? (getSpdxLicenseName(spdxId) ?? spdxId) : "License",
+        text: fileText,
+      },
+    ];
   }
   return resolveSpdxIds(declaration ?? "").map((spdxId) => ({
     spdxId,
@@ -155,19 +162,21 @@ function toLicenseInfo({ spdxId, name, text }: ResolvedLicense): LicenseInfo {
   return { hash: contentHash(text), name, spdxId, content: text };
 }
 
-/** The primary license of a skill: its first known SPDX id, or the raw declaration. */
-const primaryLicense = (declaration: string | undefined): string | undefined =>
-  declaration ? (resolveSpdxId(declaration) ?? declaration) : undefined;
+/** The primary license of a skill: its first resolved SPDX id, or the raw declaration. */
+function primaryLicense(
+  declaration: string | undefined,
+  entries: LicenseInfo[],
+): string | undefined {
+  const spdxId = entries.find((entry) => entry.spdxId)?.spdxId;
+  if (spdxId) return spdxId;
+  return declaration ? (resolveSpdxId(declaration) ?? declaration) : undefined;
+}
 
 /** Register entries into a shared map, keeping the first occurrence of each hash. */
-function registerLicenses(
-  map: Map<string, LicenseInfo>,
-  entries: LicenseInfo[],
-  includeContent: boolean,
-): void {
+function registerLicenses(map: Map<string, LicenseInfo>, entries: LicenseInfo[]): void {
   for (const entry of entries) {
     if (!map.has(entry.hash)) {
-      map.set(entry.hash, includeContent ? entry : { ...entry, content: "" });
+      map.set(entry.hash, entry);
     }
   }
 }
@@ -183,12 +192,12 @@ export function mergeSkillInfo(
   const skills = skillMeta.map((meta) => {
     const found = byName.get(meta.name);
     const entries = resolveLicenses(meta.license, found?.licenseContent).map(toLicenseInfo);
-    registerLicenses(licenses, entries, includeLicenseContent);
+    registerLicenses(licenses, entries);
 
     return {
       name: meta.name,
       description: meta.description,
-      license: primaryLicense(meta.license),
+      license: primaryLicense(meta.license, entries),
       licenses: entries.map((entry) => entry.hash),
       author: meta.author,
       version: meta.version,
@@ -196,5 +205,12 @@ export function mergeSkillInfo(
     };
   });
 
-  return { skills, licenses: Object.fromEntries(licenses) };
+  const licensesRecord = Object.fromEntries(
+    Array.from(licenses.entries()).map(([hash, info]) => [
+      hash,
+      includeLicenseContent ? info : { ...info, content: "" },
+    ]),
+  );
+
+  return { skills, licenses: licensesRecord };
 }

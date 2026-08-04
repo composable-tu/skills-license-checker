@@ -65,6 +65,8 @@ Source: https://github.com/user/repo
 ---
 ```
 
+Each license line shows the resolved SPDX id (or raw declaration), so multi-license skills such as `"Apache-2.0 OR MIT"` print one line per involved license.
+
 Text output with `--include-license-content`:
 
 ```
@@ -109,12 +111,7 @@ JSON output:
 }
 ```
 
-Each skill's `licenses` is a list of license hashes. A hash is the SHA-256
-digest of the license's full text, so identical text collapses into one shared
-entry while distinct text under the same SPDX id stays separate. The top-level
-`licenses` map keys every hash to its metadata, so SPDX expressions such as
-`"Apache-2.0 OR MIT"` expand to every involved license. The `content` field
-carries the full license text and is populated under `--include-license-content`.
+Each skill's `licenses` is a list of license hashes. A hash is the SHA-256 digest of the license's full text, so identical text collapses into one shared entry while distinct text under the same SPDX id stays separate. The top-level `licenses` map keys every hash to its metadata, so SPDX expressions such as `"Apache-2.0 OR MIT"` expand to every involved license. The `content` field carries the full license text and is populated under `--include-license-content`.
 
 JSON output with `--include-license-content`:
 
