@@ -28,7 +28,7 @@ import {
 export interface LicenseInfo {
   hash: string;
   name: string;
-  spdxId: string;
+  spdxId?: string;
   content: string;
 }
 
@@ -118,7 +118,7 @@ const contentHash = (text: string): string => createHash("sha256").update(text).
 
 /** A license whose full text is known, before hashing. */
 interface ResolvedLicense {
-  spdxId: string;
+  spdxId?: string;
   name: string;
   text: string;
 }
@@ -135,7 +135,7 @@ function resolveLicenses(
   fileText: string | undefined,
 ): ResolvedLicense[] {
   if (fileText) {
-    return [{ spdxId: resolveSpdxId(declaration ?? "") ?? "", name: "License", text: fileText }];
+    return [{ spdxId: resolveSpdxId(declaration ?? ""), name: "License", text: fileText }];
   }
   return resolveSpdxIds(declaration ?? "").map((spdxId) => ({
     spdxId,

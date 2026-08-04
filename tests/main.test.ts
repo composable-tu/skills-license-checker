@@ -189,6 +189,18 @@ describe("license report", () => {
     expect(result.licenses[result.skills[0].licenses[0]].content).toBe("# MIT");
   });
 
+  it("omits spdxId when only a LICENSE file exists and no declaration resolves", () => {
+    const root = fixture({
+      meta: { name: "file-only", description: "No declared license" },
+      licenseFile: { name: "LICENSE", content: "Custom proprietary terms" },
+    });
+    const result = entry(root, true);
+    const entry_ = result.licenses[result.skills[0].licenses[0]];
+
+    expect(entry_.spdxId).toBeUndefined();
+    expect(entry_.content).toBe("Custom proprietary terms");
+  });
+
   it("uses SPDX text when no license file on disk", () => {
     const root = fixture();
     const result = entry(root, true);
@@ -231,7 +243,8 @@ describe("license report", () => {
 
     expect(result.skills[0].license).toBe("Apache-2.0");
     const entries = result.skills[0].licenses.map((hash) => result.licenses[hash]);
-    expect(entries.map((e) => e.spdxId).sort()).toEqual(["Apache-2.0", "MIT"]);
+    const ids = entries.map((e) => e.spdxId).filter((id): id is string => id !== undefined);
+    expect(ids.sort((a, b) => a.localeCompare(b))).toEqual(["Apache-2.0", "MIT"]);
 
     const apache = entries.find((e) => e.spdxId === "Apache-2.0");
     const mit = entries.find((e) => e.spdxId === "MIT");
