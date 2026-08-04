@@ -12,7 +12,6 @@
 
 const frontMatter = require("front-matter");
 import type { SkillFind } from "./find-skill.ts";
-import spdxCorrect from "spdx-correct";
 
 // https://agentskills.io/specification
 
@@ -47,16 +46,12 @@ interface SkillMeta {
 export function getSkillMeta(skills: SkillFind[]): ParseSkillMeta[] {
   return skills.map((skill) => {
     const attrs: SkillFront = frontMatter(skill.content).attributes;
-    const result: ParseSkillMeta = {
+    return {
       name: skill.name,
       description: attrs.description ?? "",
+      license: attrs.license != null ? String(attrs.license).trim() || undefined : undefined,
       author: attrs.meta?.author ?? attrs.author,
       version: attrs.meta?.version ?? attrs.version,
     };
-    if (attrs.license != null) {
-      const normalized = spdxCorrect(attrs.license.trim());
-      result.license = (normalized ?? attrs.license) || undefined;
-    }
-    return result;
   });
 }

@@ -13,6 +13,7 @@
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
 import { describe, it, expect, afterEach } from "vite-plus/test";
 import { entry } from "../src/index.ts";
 
@@ -66,6 +67,10 @@ function createSkillFixture(opts?: {
   return root;
 }
 
+function contentHash(text: string): string {
+  return createHash("sha256").update(text).digest("hex");
+}
+
 describe("entry", () => {
   const dirs: string[] = [];
 
@@ -85,8 +90,8 @@ describe("entry", () => {
     const root = fixture();
     const result = entry(root);
 
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({
+    expect(result.skills).toHaveLength(1);
+    expect(result.skills[0]).toMatchObject({
       name: "test-skill",
       description: "A test skill",
       license: "MIT",
@@ -103,14 +108,15 @@ describe("entry", () => {
     });
     const result = entry(root);
 
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({
+    expect(result.skills).toHaveLength(1);
+    expect(result.skills[0]).toMatchObject({
       name: "minimal-skill",
       description: "Minimal skill",
     });
-    expect(result[0].license).toBeUndefined();
-    expect(result[0].author).toBeUndefined();
-    expect(result[0].version).toBeUndefined();
+    expect(result.skills[0].license).toBeUndefined();
+    expect(result.skills[0].author).toBeUndefined();
+    expect(result.skills[0].version).toBeUndefined();
+    expect(result.skills[0].licenses).toEqual([]);
   });
 
   // When a skills-lock.json maps a skill to a GitHub source, sourceUrl should be resolved.
@@ -124,7 +130,7 @@ describe("entry", () => {
     });
     const result = entry(root);
 
-    expect(result[0].sourceUrl).toBe("https://github.com/user/repo");
+    expect(result.skills[0].sourceUrl).toBe("https://github.com/user/repo");
   });
 
   // An empty directory with no agent skill folders should yield an empty result.
@@ -133,23 +139,23 @@ describe("entry", () => {
     dirs.push(root);
     const result = entry(root);
 
-    expect(result).toHaveLength(0);
+    expect(result.skills).toHaveLength(0);
   });
 
-  // licenseContent is omitted from output by default.
-  it("does not include licenseContent by default", () => {
+  // License full text is not included in the report by default.
+  it("does not include license content by default", () => {
     const root = fixture({
       licenseFile: { name: "LICENSE", content: "MIT License\n\n..." },
     });
     const result = entry(root);
 
-    expect(result[0]).not.toHaveProperty("licenseContent");
+    expect(result.licenses[result.skills[0].licenses[0]].content).toBe("");
   });
 });
 
 const MIT_LICENSE_TEXT = "MIT License\n\nCopyright (c) test";
 
-describe("license content", () => {
+describe("license report", () => {
   const dirs: string[] = [];
 
   afterEach(() => {
@@ -168,8 +174,10 @@ describe("license content", () => {
       licenseFile: { name: "LICENSE", content: MIT_LICENSE_TEXT },
     });
     const result = entry(root, true);
+    const hash = result.skills[0].licenses[0];
 
-    expect(result[0].licenseContent).toBe(MIT_LICENSE_TEXT);
+    expect(hash).toBe(contentHash(MIT_LICENSE_TEXT));
+    expect(result.licenses[hash].content).toBe(MIT_LICENSE_TEXT);
   });
 
   it("falls back to LICENSE.md when LICENSE is absent", () => {
@@ -178,22 +186,146 @@ describe("license content", () => {
     });
     const result = entry(root, true);
 
-    expect(result[0].licenseContent).toBe("# MIT");
+    expect(result.licenses[result.skills[0].licenses[0]].content).toBe("# MIT");
   });
 
   it("uses SPDX text when no license file on disk", () => {
     const root = fixture();
     const result = entry(root, true);
+    const [hash] = result.skills[0].licenses;
 
-    expect(result[0].licenseContent).toContain("Permission is hereby granted");
+    expect(hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(result.licenses[hash]).toMatchObject({
+      name: "MIT License",
+      spdxId: "MIT",
+    });
+    expect(result.licenses[hash].content).toContain("Permission is hereby granted");
   });
 
-  it("returns undefined when no license file and no frontmatter license", () => {
+  it("hashes license text, not the SPDX id", () => {
+    const root = fixture();
+    const result = entry(root, true);
+
+    expect(result.skills[0].licenses[0]).not.toBe("MIT");
+  });
+
+  it("returns no licenses when no license file and no frontmatter license", () => {
     const root = fixture({
       meta: { name: "no-license", description: "No license" },
     });
     const result = entry(root, true);
 
-    expect(result[0].licenseContent).toBeUndefined();
+    expect(result.skills[0].licenses).toEqual([]);
+    expect(Object.keys(result.licenses)).toHaveLength(0);
+  });
+
+  it("expands an OR expression to every involved license with full text", () => {
+    const root = fixture({
+      meta: {
+        name: "expr-skill",
+        description: "Expr skill",
+        license: "Apache-2.0 OR MIT",
+      },
+    });
+    const result = entry(root, true);
+
+    expect(result.skills[0].license).toBe("Apache-2.0");
+    const entries = result.skills[0].licenses.map((hash) => result.licenses[hash]);
+    expect(entries.map((e) => e.spdxId).sort()).toEqual(["Apache-2.0", "MIT"]);
+
+    const apache = entries.find((e) => e.spdxId === "Apache-2.0");
+    const mit = entries.find((e) => e.spdxId === "MIT");
+    expect(apache!.content).toContain("Apache License");
+    expect(mit!.content).toContain("Permission is hereby granted");
+  });
+
+  it("expands a parenthesized AND expression to every involved license", () => {
+    const root = fixture({
+      meta: {
+        name: "and-skill",
+        description: "And skill",
+        license: "(MIT AND Apache-2.0)",
+      },
+    });
+    const result = entry(root, true);
+
+    expect(result.skills[0].license).toBe("MIT");
+    const entries = result.skills[0].licenses.map((hash) => result.licenses[hash]);
+    expect(entries.map((e) => e.spdxId)).toEqual(["MIT", "Apache-2.0"]);
+  });
+
+  it("keeps the raw value when no token resolves to a known SPDX id", () => {
+    const root = fixture({
+      meta: {
+        name: "unknown-skill",
+        description: "Unknown skill",
+        license: "Custom License OR Something",
+      },
+    });
+    const result = entry(root, true);
+
+    expect(result.skills[0].license).toBe("Custom License OR Something");
+    expect(result.skills[0].licenses).toEqual([]);
+  });
+
+  it("collapses skills shipping identical license text into one shared entry", () => {
+    const root = createSkillFixture({
+      name: "alpha",
+      meta: { name: "alpha", description: "Alpha", license: "MIT" },
+      licenseFile: { name: "LICENSE", content: MIT_LICENSE_TEXT },
+    });
+    const betaRoot = createSkillFixture({
+      name: "beta",
+      meta: { name: "beta", description: "Beta", license: "MIT" },
+      licenseFile: { name: "LICENSE", content: MIT_LICENSE_TEXT },
+    });
+    dirs.push(root, betaRoot);
+
+    const result = entry(root, true);
+    const beta = entry(betaRoot, true);
+
+    expect(result.skills[0].licenses).toEqual(beta.skills[0].licenses);
+    expect(Object.keys(result.licenses)).toHaveLength(1);
+  });
+
+  it("keeps distinct text under the same SPDX id as separate entries", () => {
+    const root = createSkillFixture({
+      name: "alpha",
+      meta: { name: "alpha", description: "Alpha", license: "MIT" },
+      licenseFile: { name: "LICENSE", content: "Custom MIT variant A" },
+    });
+    const betaRoot = createSkillFixture({
+      name: "beta",
+      meta: { name: "beta", description: "Beta", license: "MIT" },
+      licenseFile: { name: "LICENSE", content: "Custom MIT variant B" },
+    });
+    dirs.push(root, betaRoot);
+
+    const alpha = entry(root, true);
+    const beta = entry(betaRoot, true);
+    const hashA = alpha.skills[0].licenses[0];
+    const hashB = beta.skills[0].licenses[0];
+
+    expect(hashA).not.toBe(hashB);
+    expect(alpha.licenses[hashA].content).toBe("Custom MIT variant A");
+    expect(beta.licenses[hashB].content).toBe("Custom MIT variant B");
+  });
+
+  it("merges skills sharing the same SPDX text into one shared entry", () => {
+    const root = createSkillFixture({
+      name: "alpha",
+      meta: { name: "alpha", description: "Alpha", license: "MIT" },
+    });
+    const betaRoot = createSkillFixture({
+      name: "beta",
+      meta: { name: "beta", description: "Beta", license: "MIT" },
+    });
+    dirs.push(root, betaRoot);
+
+    const alpha = entry(root, true);
+    const beta = entry(betaRoot, true);
+
+    expect(alpha.skills[0].licenses[0]).toBe(beta.skills[0].licenses[0]);
+    expect(Object.keys(alpha.licenses)).toHaveLength(1);
   });
 });
