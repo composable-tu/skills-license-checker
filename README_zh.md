@@ -109,7 +109,7 @@ Permission is hereby granted, free of charge, to any person obtaining a copy
 }
 ```
 
-每个 skill 的 `licenses` 是许可证哈希列表。哈希是许可证全文的 SHA-256 摘要，因此内容相同会合并为同一条目，而相同 SPDX id 下内容不同的许可证也会被保留为独立条目。顶层的 `licenses` 映射将每个哈希对应到其元数据，因此 SPDX 表达式（如 `"Apache-2.0 OR MIT"`）会展开为所涉及的全部许可证。`content` 字段承载许可证全文，仅在 `--include-license-content` 时填充。
+每个 skill 的 `licenses` 是许可证哈希列表。哈希是许可证全文的 SHA-256 摘要，因此内容相同会合并为同一条目，而相同 SPDX ID 下内容不同的许可证也会被保留为独立条目。顶层的 `licenses` 映射将每个哈希对应到其元数据，因此 SPDX 表达式（如 `"Apache-2.0 OR MIT"`）会展开为所涉及的全部许可证。`content` 字段承载许可证全文，仅在 `--include-license-content` 时填充。
 
 带 `--include-license-content` 的 JSON 输出：
 
