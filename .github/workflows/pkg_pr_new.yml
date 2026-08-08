@@ -11,9 +11,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6.0.9
+      - uses: pnpm/setup@v1
         with:
           version: 11
+          runtime: node@26
+          cache: true
 
       - run: corepack enable
       - uses: voidzero-dev/setup-vp@v1
