@@ -330,7 +330,7 @@ describe("license report", () => {
     expect(entries.map((e) => e.spdxId)).toEqual(["MIT", "Apache-2.0"]);
   });
 
-  it("keeps the raw value when no token resolves to a known SPDX id", () => {
+  it("represents an unrecognized declaration as a single license entry", () => {
     const root = fixture({
       meta: {
         name: "unknown-skill",
@@ -339,9 +339,15 @@ describe("license report", () => {
       },
     });
     const result = entry(root, true);
+    const skill = result.skills[0];
 
-    expect(result.skills[0].license).toBe("Custom License OR Something");
-    expect(result.skills[0].licenses).toEqual([]);
+    // The raw declaration is preserved as the primary license...
+    expect(skill.license).toBe("Custom License OR Something");
+    // ...and still yields one structured entry so non-SPDX licenses are not lost.
+    expect(skill.licenses).toHaveLength(1);
+    const lic = result.licenses[skill.licenses[0]];
+    expect(lic.spdxId).toBeUndefined();
+    expect(lic.name).toBe("Custom License OR Something");
   });
 
   it("collapses skills shipping identical license text into one shared entry", () => {
