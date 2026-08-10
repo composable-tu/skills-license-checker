@@ -46,10 +46,15 @@ function collectIds(node: ReturnType<typeof parseExpression>): string[] {
   return [...collectIds(node.left), ...collectIds(node.right)];
 }
 
-/** Look up the canonical name and full text for a (possibly corrected) SPDX id. */
+/**
+ * Look up the canonical name and full text for a (possibly corrected) SPDX id.
+ * When the id is not in the license list (e.g. a valid SPDX exception, or a
+ * parser/license-list mismatch) the id itself is carried as `text` so distinct
+ * unknowns hash to distinct keys instead of all collapsing onto the empty string.
+ */
 function describe(id: string): { name: string; text: string } {
   const meta = licenseList[id];
-  return { name: meta?.name ?? id, text: meta?.licenseText ?? "" };
+  return { name: meta?.name ?? id, text: meta?.licenseText ?? id };
 }
 
 /**

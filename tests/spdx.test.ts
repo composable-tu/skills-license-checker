@@ -56,11 +56,13 @@ describe("resolveLicense", () => {
     expect(ids(result)).toEqual(["GPL-2.0-only", "Classpath-exception-2.0"]);
   });
 
-  it("does not invent a name or text for an unknown exception id", () => {
+  it("carries the exception id as text when its full text is unavailable", () => {
     const result = resolveLicense("GPL-2.0-only WITH Classpath-exception-2.0");
     const exception = result.find((e) => e.spdxId === "Classpath-exception-2.0");
     expect(exception?.name).toBe("Classpath-exception-2.0");
-    expect(exception?.text).toBe("");
+    // No exception text ships in spdx-license-list, so the id itself is carried
+    // as text — this keeps distinct exceptions from hashing to the same empty key.
+    expect(exception?.text).toBe("Classpath-exception-2.0");
   });
 
   it("corrects common misspellings via spdx-correct", () => {
@@ -191,5 +193,15 @@ describe("collectSkillLicenses", () => {
     const { result } = collect({ license: undefined });
     expect(result.primaryLicense).toBeUndefined();
     expect(result.hashes).toHaveLength(0);
+  });
+
+  it("keeps a custom non-SPDX declaration as the primary license", () => {
+    // No LICENSE file: a custom/non-SPDX declaration must be preserved verbatim
+    // as the primary license, not dropped or rewritten.
+    const { result, licenses } = collect({ license: "Custom Proprietary License" });
+    expect(result.primaryLicense).toBe("Custom Proprietary License");
+    expect(result.hashes).toHaveLength(1);
+    const info = licenses.get(result.hashes[0])!;
+    expect(info.spdxId).toBeUndefined();
   });
 });
