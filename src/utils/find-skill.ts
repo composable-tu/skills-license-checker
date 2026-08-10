@@ -126,7 +126,7 @@ interface SkillLicenses {
  * skill. The file text wins; the entry is named after the first recognized
  * SPDX id in the declaration (or a generic "License" when none resolves).
  */
-function fileEntry(declaration: string, fileText: string): ResolvedLicense[] {
+export function fileEntry(declaration: string, fileText: string): ResolvedLicense[] {
   const [first] = resolveLicense(declaration);
   return [{ spdxId: first?.spdxId, name: first?.spdxId ? first.name : "License", text: fileText }];
 }
@@ -141,7 +141,7 @@ function fileEntry(declaration: string, fileText: string): ResolvedLicense[] {
  * Returns the primary license (the first resolved SPDX id, or the raw
  * declaration) and the hash list.
  */
-function collectSkillLicenses(
+export function collectSkillLicenses(
   meta: ParseSkillMeta,
   found: SkillFind | undefined,
   licenses: Map<string, LicenseInfo>,

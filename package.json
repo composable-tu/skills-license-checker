@@ -1,6 +1,6 @@
 {
   "name": "skills-license-checker",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "A JS library to help JS/TS developers quickly generate information regarding Agent Skills for use at the project level.",
   "homepage": "https://github.com/composable-tu/skills-license-checker#readme",
   "bugs": {

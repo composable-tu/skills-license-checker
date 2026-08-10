@@ -18,9 +18,13 @@ import parseExpression from "spdx-expression-parse";
 export interface ResolvedLicense {
   /** The recognized SPDX id, or `undefined` when the token is unknown. */
   spdxId?: string;
-  /** Canonical display name; falls back to the id itself when unknown. */
+  /** Canonical display name; for an unrecognized declaration this is the raw string. */
   name: string;
-  /** Full license text when the id is known; empty otherwise. */
+  /**
+   * Full license text when the id is known; for an unrecognized declaration the
+   * raw string is carried here so the entry stays identifiable and hashes to a
+   * distinct key instead of collapsing with other unknown licenses.
+   */
   text: string;
 }
 
@@ -51,12 +55,26 @@ function describe(id: string): { name: string; text: string } {
 /**
  * Resolve a license declaration into structured license entries.
  *
- * The declaration is parsed as an SPDX expression, so OR / AND / WITH operators
- * and parentheses are handled correctly — e.g. `"(MIT AND Apache-2.0) OR ISC"`
- * or `"GPL-2.0-only WITH Classpath-exception-2.0"`. Every id is spell-corrected
- * via `spdx-correct`, and invalid expressions fall back to correcting the whole
- * string as a single name. Unknown declarations yield an empty list, so callers
- * always have a clear "nothing resolved" signal to fall back on.
+ * Three cases, all designed so the tool never rewrites someone's compliance
+ * declaration:
+ *
+ * 1. **Valid SPDX expression** — e.g. `"(MIT AND Apache-2.0) OR ISC"` or
+ *    `"GPL-2.0-only WITH Classpath-exception-2.0"`. Parsed with
+ *    `spdx-expression-parse`, then every recognized id is spell-corrected via
+ *    `spdx-correct` and looked up for its canonical name and text. The
+ *    OR / AND / WITH structure is preserved exactly as declared — nothing is
+ *    dropped or invented.
+ *
+ * 2. **A single, misspelled SPDX id** — e.g. `"apache2"` or `"mit"`. Normalized
+ *    to its canonical id. This branch is intentionally limited to single-token
+ *    declarations: a free-form or mixed declaration is never silently rewritten.
+ *
+ * 3. **Anything else** — a custom/non-SPDX name, a known id mixed with a custom
+ *    name (`"MIT OR Custom Proprietary License"`), or malformed syntax. Carried
+ *    through **verbatim** as a single entry carrying the raw string, so the
+ *    declaration stays represented in the report and (because it is also used
+ *    as `text`) hashes to a distinct key instead of collapsing with other
+ *    unknown licenses.
  *
  * This is the single source of truth for turning a raw declaration into license
  * data; downstream code hashes the `text` and attaches the `spdxId`/`name`.
@@ -66,16 +84,30 @@ export function resolveLicense(declaration: string): ResolvedLicense[] {
   const trimmed = declaration.trim();
   if (!trimmed) return [];
 
-  // Valid SPDX expression first — keeps the OR/AND/WITH structure intact.
-  const rawIds: string[] = [];
+  // 1. Valid SPDX expression → expand every recognized node, preserving the
+  //    OR / AND / WITH structure exactly as declared.
   try {
-    rawIds.push(...collectIds(parseExpression(trimmed)));
+    return expand(collectIds(parseExpression(trimmed)));
   } catch {
-    // Not a valid expression — treat the whole string as one name instead.
-    const single = correct(trimmed);
-    if (single) rawIds.push(single);
+    // Not a parseable SPDX expression; fall through.
   }
 
+  // 2. A single token that is merely a misspelling/case-variant of a known
+  //    SPDX id — normalize it. Limited to single tokens so a free-form or
+  //    mixed declaration is never silently rewritten (spdx-correct would
+  //    otherwise fuzzy-match "MIT OR Custom Proprietary License" to "MIT").
+  if (!/\s/.test(trimmed)) {
+    const corrected = correct(trimmed);
+    if (corrected) return expand([corrected]);
+  }
+
+  // 3. Anything else — carry the raw declaration through verbatim. As a
+  //    compliance tool we must not drop or rewrite anyone's declared license.
+  return [{ spdxId: undefined, name: trimmed, text: trimmed }];
+}
+
+/** Expand a list of (already recognized) SPDX ids into resolved entries. */
+function expand(rawIds: string[]): ResolvedLicense[] {
   const seen = new Set<string>();
   const entries: ResolvedLicense[] = [];
   for (const raw of rawIds) {
