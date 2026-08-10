@@ -10,50 +10,80 @@
  * See the Mulan PSL v2 for more details.
  */
 
-import licenseList from "spdx-license-list/full.js";
 import correct from "spdx-correct";
+import licenseList from "spdx-license-list/full.js";
+import parseExpression from "spdx-expression-parse";
 
-const OPERATOR_TOKENS = /^(OR|AND|WITH)$/i;
-const trimPunctuation = (token: string): string => token.replace(/^[()[\],;]+|[()[\],;]+$/g, "");
+/** A single license (or exception) resolved from a declaration, before hashing. */
+export interface ResolvedLicense {
+  /** The recognized SPDX id, or `undefined` when the token is unknown. */
+  spdxId?: string;
+  /** Canonical display name; falls back to the id itself when unknown. */
+  name: string;
+  /** Full license text when the id is known; empty otherwise. */
+  text: string;
+}
 
 /**
- * Resolve every known SPDX id referenced by a license declaration.
+ * Walk a parsed SPDX expression and collect every license and exception id,
+ * in declaration order:
  *
- * Accepts a single id ("Apache-2.0") or an SPDX expression ("Apache-2.0 OR
- * MIT"): operators and surrounding punctuation are skipped, each token is
- * spell-corrected via `spdx-correct`, and every recognized id is returned in
- * declaration order. Unknown tokens are ignored, so a free-form name yields an
- * empty array.
+ *   { license: "MIT" }
+ *     → ["MIT"]
+ *   { license: "GPL-2.0-only", exception: "Classpath-exception-2.0" }
+ *     → ["GPL-2.0-only", "Classpath-exception-2.0"]
+ *   { conjunction: "or", left, right }
+ *     → left ids ++ right ids
  */
-export function resolveSpdxIds(declaration: string): string[] {
-  if (!declaration || typeof declaration !== "string") return [];
-
-  const ids: string[] = [];
-  const seen = new Set<string>();
-  for (const token of declaration.trim().split(/\s+/)) {
-    const candidate = trimPunctuation(token);
-    if (!candidate || OPERATOR_TOKENS.test(candidate)) continue;
-
-    const id = correct(candidate) ?? candidate;
-    if (licenseList[id] && !seen.has(id)) {
-      seen.add(id);
-      ids.push(id);
-    }
+function collectIds(node: ReturnType<typeof parseExpression>): string[] {
+  if ("license" in node) {
+    return node.exception ? [node.license, node.exception] : [node.license];
   }
-  return ids;
+  return [...collectIds(node.left), ...collectIds(node.right)];
 }
 
-/** The first known SPDX id referenced by a declaration, if any. */
-export function resolveSpdxId(declaration: string): string | undefined {
-  return resolveSpdxIds(declaration)[0];
+/** Look up the canonical name and full text for a (possibly corrected) SPDX id. */
+function describe(id: string): { name: string; text: string } {
+  const meta = licenseList[id];
+  return { name: meta?.name ?? id, text: meta?.licenseText ?? "" };
 }
 
-/** The canonical name of a known SPDX id. */
-export function getSpdxLicenseName(spdxId: string): string | undefined {
-  return licenseList[spdxId]?.name;
-}
+/**
+ * Resolve a license declaration into structured license entries.
+ *
+ * The declaration is parsed as an SPDX expression, so OR / AND / WITH operators
+ * and parentheses are handled correctly — e.g. `"(MIT AND Apache-2.0) OR ISC"`
+ * or `"GPL-2.0-only WITH Classpath-exception-2.0"`. Every id is spell-corrected
+ * via `spdx-correct`, and invalid expressions fall back to correcting the whole
+ * string as a single name. Unknown declarations yield an empty list, so callers
+ * always have a clear "nothing resolved" signal to fall back on.
+ *
+ * This is the single source of truth for turning a raw declaration into license
+ * data; downstream code hashes the `text` and attaches the `spdxId`/`name`.
+ */
+export function resolveLicense(declaration: string): ResolvedLicense[] {
+  if (typeof declaration !== "string") return [];
+  const trimmed = declaration.trim();
+  if (!trimmed) return [];
 
-/** The full license text of a known SPDX id. */
-export function getSpdxLicenseText(spdxId: string): string | undefined {
-  return licenseList[spdxId]?.licenseText;
+  // Valid SPDX expression first — keeps the OR/AND/WITH structure intact.
+  const rawIds: string[] = [];
+  try {
+    rawIds.push(...collectIds(parseExpression(trimmed)));
+  } catch {
+    // Not a valid expression — treat the whole string as one name instead.
+    const single = correct(trimmed);
+    if (single) rawIds.push(single);
+  }
+
+  const seen = new Set<string>();
+  const entries: ResolvedLicense[] = [];
+  for (const raw of rawIds) {
+    const spdxId = correct(raw) ?? raw;
+    if (seen.has(spdxId)) continue;
+    seen.add(spdxId);
+    const { name, text } = describe(spdxId);
+    entries.push({ spdxId, name, text });
+  }
+  return entries;
 }
