@@ -108,7 +108,7 @@ export function resolveLicense(declaration: string): ResolvedLicense[] {
 
   // 3. Anything else — carry the raw declaration through verbatim. As a
   //    compliance tool we must not drop or rewrite anyone's declared license.
-  return [{ spdxId: undefined, name: trimmed, text: trimmed }];
+  return [{ spdxId: undefined, name: declaration, text: declaration }];
 }
 
 /** Expand a list of (already recognized) SPDX ids into resolved entries. */
