@@ -17,12 +17,7 @@ import { agentDirs } from "../config/agent-dirs.ts";
 import { findLicenseFile } from "./find-license.ts";
 import { readSkillsLock } from "./parse-vercel-skills-lock.ts";
 import type { ParseSkillMeta } from "./parse-skill-front.ts";
-import {
-  getSpdxLicenseName,
-  getSpdxLicenseText,
-  resolveSpdxId,
-  resolveSpdxIds,
-} from "./spdx-license.ts";
+import { resolveLicense, type ResolvedLicense } from "./spdx-license.ts";
 
 /** A single license resolved to its full text. */
 export interface LicenseInfo {
@@ -120,13 +115,6 @@ export function findSkills(projectRoot: string): SkillFind[] {
 
 /* ----------------------------- License report ---------------------------- */
 
-/** A license whose full text is known, before hashing. */
-interface ResolvedLicense {
-  spdxId?: string;
-  name: string;
-  text: string;
-}
-
 /** The licenses a skill resolves to. */
 interface SkillLicenses {
   primaryLicense?: string;
@@ -134,40 +122,34 @@ interface SkillLicenses {
 }
 
 /**
+ * Build the single authoritative entry from a LICENSE file bundled with the
+ * skill. The file text wins; the entry is named after the first recognized
+ * SPDX id in the declaration (or a generic "License" when none resolves).
+ */
+export function fileEntry(declaration: string, fileText: string): ResolvedLicense[] {
+  const [first] = resolveLicense(declaration);
+  return [{ spdxId: first?.spdxId, name: first?.spdxId ? first.name : "License", text: fileText }];
+}
+
+/**
  * Resolve, hash, and register every license a skill provides.
  *
- * A LICENSE file shipped with the skill is authoritative and yields a single
- * entry. Otherwise every SPDX id named in the declaration is resolved against
- * the canonical SPDX license list. Each license's SHA-256 text hash is
+ * A LICENSE file shipped with the skill is authoritative and yields one entry
+ * (see {@link fileEntry}); otherwise every license named in the declaration is
+ * resolved via {@link resolveLicense}. Each license's SHA-256 text hash is
  * registered into the shared map, keeping the first occurrence of each hash.
  * Returns the primary license (the first resolved SPDX id, or the raw
  * declaration) and the hash list.
  */
-function collectSkillLicenses(
+export function collectSkillLicenses(
   meta: ParseSkillMeta,
   found: SkillFind | undefined,
   licenses: Map<string, LicenseInfo>,
 ): SkillLicenses {
   const declaration = meta.license ?? "";
-  const fileText = found?.licenseContent;
-
-  const resolved: ResolvedLicense[] = [];
-  if (fileText) {
-    const spdxId = resolveSpdxId(declaration);
-    resolved.push({
-      spdxId,
-      name: spdxId ? (getSpdxLicenseName(spdxId) ?? spdxId) : "License",
-      text: fileText,
-    });
-  } else {
-    for (const spdxId of resolveSpdxIds(declaration)) {
-      resolved.push({
-        spdxId,
-        name: getSpdxLicenseName(spdxId) ?? spdxId,
-        text: getSpdxLicenseText(spdxId) ?? "",
-      });
-    }
-  }
+  const resolved = found?.licenseContent
+    ? fileEntry(declaration, found.licenseContent)
+    : resolveLicense(declaration);
 
   const hashes = resolved.map(({ spdxId, name, text }) => {
     const hash = createHash("sha256").update(text).digest("hex");
@@ -177,9 +159,8 @@ function collectSkillLicenses(
     return hash;
   });
 
-  const spdxId = resolved.find((entry) => entry.spdxId)?.spdxId;
-  const primaryLicense =
-    spdxId ?? (declaration ? (resolveSpdxId(declaration) ?? declaration) : undefined);
+  const primarySpdxId = resolved.find((entry) => entry.spdxId)?.spdxId;
+  const primaryLicense = primarySpdxId ?? (declaration || undefined);
 
   return { primaryLicense, hashes };
 }
